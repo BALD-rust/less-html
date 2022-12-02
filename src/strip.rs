@@ -2,14 +2,17 @@ use crate::{ParsedHtml, StrippedHtml, Element};
 use html_parser::{Dom, Node};
 use anyhow::Result;
 
-pub fn parse_node(node: &html_parser::Node) -> Option<Element> {
+pub fn strip_node_default(element: &html_parser::Element) -> Option<Element> {
+    Some(Element::Tag(element.name.clone()))
+}
+
+pub fn parse_node<F>(node: &html_parser::Node, strip_fn: &F) -> Option<Element> where F: Fn(&html_parser::Element) -> Option<Element> {
     match node {
         Node::Text(str) => {
-            // TODO: return nothing here, parse actual text content in Element case.
             Some(Element::Text(str.clone()))
         }
         Node::Element(elem) => {
-            Some(Element::Tag(elem.name.clone()))
+            strip_fn(&elem)
         }
         Node::Comment(_) => { None }
     }
@@ -21,16 +24,18 @@ fn optional_append(vec: &mut Vec<Element>, elems: Option<&[Element]>) {
     }
 }
 
-pub fn strip_node(node: &Node) -> Option<Vec<Element>> {
+pub fn strip_node_recursive<F>(node: &Node, strip_fn: &F) -> Option<Vec<Element>> where F: Fn(&html_parser::Element) -> Option<Element> {
     // 1. Parse this node
-    let this = parse_node(&node);
+    let this = parse_node(&node, strip_fn);
 
     // 2. Parse children
     let children: Option<Vec<Element>> = if let Node::Element(elem) = node {
-        Some(elem.children.iter()
-            .flat_map(strip_node)
-            .fold(vec![], |acc, elem| [acc, elem].concat())
-        )
+        if this.is_some() {
+            Some(elem.children.iter()
+                .flat_map(|node| strip_node_recursive(node, strip_fn))
+                .fold(vec![], |acc, elem| [acc, elem].concat())
+            )
+        } else { None }
     } else { None };
 
     let mut result = vec![];
@@ -44,9 +49,9 @@ pub fn strip_node(node: &Node) -> Option<Vec<Element>> {
     Some(result)
 }
 
-pub fn strip_all_recursive(dom: &ParsedHtml) -> Result<StrippedHtml> {
+pub fn strip_all_recursive<F>(dom: &ParsedHtml, strip_fn: &F) -> Result<StrippedHtml> where F: Fn(&html_parser::Element) -> Option<Element> {
     let elems: Vec<Element> = dom.dom.children.iter()
-        .flat_map(strip_node)
+        .flat_map(|node| strip_node_recursive(node, strip_fn))
         .fold(vec![], |acc, elem| [acc, elem].concat());
     Ok(
         StrippedHtml {

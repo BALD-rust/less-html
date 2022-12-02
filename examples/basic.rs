@@ -8,20 +8,27 @@ fn to_html(stripped: &StrippedHtml) -> String {
         match element {
             Element::Text(str) => str.clone(),
             Element::Tag(name) => "<".to_owned() + name + ">",
-            Element::EndTag(name) => "</".to_owned() + name + ">"
+            Element::EndTag(name) => "</".to_owned() + name + ">",
+            Element::IgnoreTag => String::from("")
         }
     })
     .fold(String::from(""), |acc, elem| acc + &elem)
 }
 
+fn strip_func(elem: &html_parser::Element) -> Option<Element> {
+    if elem.name == "head" { return None; }
+
+    Some(Element::Tag(elem.name.clone()))
+}
+
 fn main() -> Result<()> {
-    let doc = less_html::Document::from_file(std::path::Path::new("example.html"))?;
+    let doc = less_html::Document::from_file(std::path::Path::new("cnn.html"))?;
     let html = less_html::parse(&doc)?;
 
-    println!("HTML: {:#?}", doc);
-    println!("parsed: {:#?}", html);
+//    println!("HTML: {:#?}", doc);
+//    println!("parsed: {:#?}", html);
 
-    let stripped = less_html::strip::strip_all_recursive(&html)?;
+    let stripped = less_html::strip::strip_all_recursive(&html, &strip_func)?;
 
     let mut file = File::create(std::path::Path::new("output.html"))?;
     file.write(to_html(&stripped).as_bytes())?;

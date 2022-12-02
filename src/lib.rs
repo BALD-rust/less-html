@@ -38,7 +38,8 @@ pub struct ParsedHtml {
 pub enum Element {
     Text(String),
     Tag(String),
-    EndTag(String)
+    EndTag(String),
+    IgnoreTag // Setting the element to this will ignore the tag, but parse the children
 }
 
 #[derive(Debug)]
