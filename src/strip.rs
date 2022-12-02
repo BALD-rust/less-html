@@ -15,38 +15,39 @@ pub fn parse_node(node: &html_parser::Node) -> Option<Element> {
     }
 }
 
-trait IterConcat<I> where I: Iterator {
-    type Item;
-    fn iter_concat(&self) -> Vec<Self::Item> where I: Iterator;
-}
-
-impl<I> IterConcat<I> for I where I: Iterator {
-    type Item = I::Item;
-
-    fn iter_concat(&self) -> Vec<Self::Item> where I: Iterator {
-        self.fold(vec![], |acc, elem| [acc, elem].concat())
+fn optional_append(vec: &mut Vec<Element>, elems: Option<&[Element]>) {
+    if let Some(elems) = elems {
+        vec.extend_from_slice(&elems);
     }
 }
 
 pub fn strip_node(node: &Node) -> Option<Vec<Element>> {
     // 1. Parse this node
     let this = parse_node(&node);
+
     // 2. Parse children
-    let children: Option<Vec<Element>> = if let Some(Node::Element(elem)) = node {
+    let children: Option<Vec<Element>> = if let Node::Element(elem) = node {
         Some(elem.children.iter()
             .flat_map(strip_node)
-            .collect()
+            .fold(vec![], |acc, elem| [acc, elem].concat())
         )
     } else { None };
-    // 3. Optionally put end tag
 
-    todo!()
+    let mut result = vec![];
+    optional_append(&mut result, this.as_ref().map(std::slice::from_ref));
+    optional_append(&mut result, children.as_ref().map(Vec::<_>::as_slice));
+
+    if let Some(Element::Tag(tag)) = &this {
+        result.push(Element::EndTag(tag.clone()));
+    }
+
+    Some(result)
 }
 
 pub fn strip_all_recursive(dom: &ParsedHtml) -> Result<StrippedHtml> {
     let elems: Vec<Element> = dom.dom.children.iter()
         .flat_map(strip_node)
-        .collect();
+        .fold(vec![], |acc, elem| [acc, elem].concat());
     Ok(
         StrippedHtml {
             0: elems
@@ -54,21 +55,21 @@ pub fn strip_all_recursive(dom: &ParsedHtml) -> Result<StrippedHtml> {
     )
 }
 
-pub fn strip_all(dom: &ParsedHtml) -> Result<StrippedHtml> {
-    let elems: Vec<Element> = dom.dom.children.iter().map(|root| -> Vec<Option<Element>> {
-        root.into_iter().map(|node| -> Vec<Option<Element>> {
-            vec![parse_node(&node)]
-        })
-        .fold(vec![], |acc, elem| vec![acc, elem].concat().to_vec())
-    })
-    .fold(vec![], |acc, elem| vec![acc, elem].concat().to_vec())
-    .into_iter()
-    .flat_map(|e| e)
-    .collect();
-
-    Ok(
-        StrippedHtml {
-            0: elems,
-        }
-    )
-}
+// pub fn strip_all(dom: &ParsedHtml) -> Result<StrippedHtml> {
+//     let elems: Vec<Element> = dom.dom.children.iter().map(|root| -> Vec<Option<Element>> {
+//         root.into_iter().map(|node| -> Vec<Option<Element>> {
+//             vec![parse_node(&node)]
+//         })
+//         .fold(vec![], |acc, elem| vec![acc, elem].concat().to_vec())
+//     })
+//     .fold(vec![], |acc, elem| vec![acc, elem].concat().to_vec())
+//     .into_iter()
+//     .flat_map(|e| e)
+//     .collect();
+//
+//     Ok(
+//         StrippedHtml {
+//             0: elems,
+//         }
+//     )
+// }

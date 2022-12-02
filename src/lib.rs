@@ -38,7 +38,6 @@ pub struct ParsedHtml {
 pub enum Element {
     Text(String),
     Header(String, u32), // TODO: newtype for heading level,
-    // Debug:
     Tag(String),
     EndTag(String)
 }
