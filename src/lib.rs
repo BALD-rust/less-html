@@ -1,4 +1,5 @@
-mod error;
+pub mod error;
+pub mod strip;
 
 use html_parser as html;
 use anyhow::Result;
@@ -32,6 +33,18 @@ impl Document {
 pub struct ParsedHtml {
     dom: html::Dom,
 }
+
+#[derive(Debug, Clone)]
+pub enum Element {
+    Text(String),
+    Header(String, u32), // TODO: newtype for heading level,
+    // Debug:
+    Tag(String),
+    EndTag(String)
+}
+
+#[derive(Debug)]
+pub struct StrippedHtml(Vec<Element>);
 
 pub fn parse(doc: &Document) -> Result<ParsedHtml> {
     Ok(ParsedHtml {
