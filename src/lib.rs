@@ -37,13 +37,12 @@ pub struct ParsedHtml {
 #[derive(Debug, Clone)]
 pub enum Element {
     Text(String),
-    Header(String, u32), // TODO: newtype for heading level,
     Tag(String),
     EndTag(String)
 }
 
 #[derive(Debug)]
-pub struct StrippedHtml(Vec<Element>);
+pub struct StrippedHtml(pub Vec<Element>);
 
 pub fn parse(doc: &Document) -> Result<ParsedHtml> {
     Ok(ParsedHtml {
