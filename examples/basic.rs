@@ -25,10 +25,10 @@ fn main() -> Result<()> {
     let doc = less_html::Document::from_file(std::path::Path::new("cnn.html"))?;
     let html = less_html::parse(&doc)?;
 
-//    println!("HTML: {:#?}", doc);
-//    println!("parsed: {:#?}", html);
+    // Default, no strip:
+    // let stripped = less_html::strip::context_free_strip(&html, &less_html::strip::passthrough);
 
-    let stripped = less_html::strip::strip_all_recursive(&html, &strip_func)?;
+    let stripped = less_html::strip::context_free_strip(&html, &strip_func)?;
 
     let mut file = File::create(std::path::Path::new("output.html"))?;
     file.write(to_html(&stripped).as_bytes())?;

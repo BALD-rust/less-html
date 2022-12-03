@@ -2,11 +2,12 @@ use crate::{ParsedHtml, StrippedHtml, Element};
 use html_parser::{Dom, Node};
 use anyhow::Result;
 
-pub fn strip_node_default(element: &html_parser::Element) -> Option<Element> {
+/// Default stripping behaviour. Does not remove any content.
+pub fn passthrough(element: &html_parser::Element) -> Option<Element> {
     Some(Element::Tag(element.name.clone()))
 }
 
-pub fn parse_node<F>(node: &html_parser::Node, strip_fn: &F) -> Option<Element> where F: Fn(&html_parser::Element) -> Option<Element> {
+fn parse_node<F>(node: &html_parser::Node, strip_fn: &F) -> Option<Element> where F: Fn(&html_parser::Element) -> Option<Element> {
     match node {
         Node::Text(str) => {
             Some(Element::Text(str.clone()))
@@ -24,7 +25,7 @@ fn optional_append(vec: &mut Vec<Element>, elems: Option<&[Element]>) {
     }
 }
 
-pub fn strip_node_recursive<F>(node: &Node, strip_fn: &F) -> Option<Vec<Element>> where F: Fn(&html_parser::Element) -> Option<Element> {
+fn strip_node_recursive<F>(node: &Node, strip_fn: &F) -> Option<Vec<Element>> where F: Fn(&html_parser::Element) -> Option<Element> {
     // 1. Parse this node
     let this = parse_node(&node, strip_fn);
 
@@ -49,7 +50,8 @@ pub fn strip_node_recursive<F>(node: &Node, strip_fn: &F) -> Option<Vec<Element>
     Some(result)
 }
 
-pub fn strip_all_recursive<F>(dom: &ParsedHtml, strip_fn: &F) -> Result<StrippedHtml> where F: Fn(&html_parser::Element) -> Option<Element> {
+/// Do a context free strip of a document. This means that only one element of the original HTML can be examined at a time.
+pub fn context_free_strip<F>(dom: &ParsedHtml, strip_fn: &F) -> Result<StrippedHtml> where F: Fn(&html_parser::Element) -> Option<Element> {
     let elems: Vec<Element> = dom.dom.children.iter()
         .flat_map(|node| strip_node_recursive(node, strip_fn))
         .fold(vec![], |acc, elem| [acc, elem].concat());
@@ -59,22 +61,3 @@ pub fn strip_all_recursive<F>(dom: &ParsedHtml, strip_fn: &F) -> Result<Stripped
         }
     )
 }
-
-// pub fn strip_all(dom: &ParsedHtml) -> Result<StrippedHtml> {
-//     let elems: Vec<Element> = dom.dom.children.iter().map(|root| -> Vec<Option<Element>> {
-//         root.into_iter().map(|node| -> Vec<Option<Element>> {
-//             vec![parse_node(&node)]
-//         })
-//         .fold(vec![], |acc, elem| vec![acc, elem].concat().to_vec())
-//     })
-//     .fold(vec![], |acc, elem| vec![acc, elem].concat().to_vec())
-//     .into_iter()
-//     .flat_map(|e| e)
-//     .collect();
-//
-//     Ok(
-//         StrippedHtml {
-//             0: elems,
-//         }
-//     )
-// }
