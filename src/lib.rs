@@ -1,8 +1,9 @@
 pub mod error;
 pub mod strip;
 
-use html_parser as html;
+use kuchiki;
 use anyhow::Result;
+use kuchiki::traits::TendrilSink;
 
 use error::Error;
 
@@ -31,7 +32,7 @@ impl Document {
 
 #[derive(Debug)]
 pub struct ParsedHtml {
-    dom: html::Dom,
+    dom: kuchiki::NodeRef
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +40,7 @@ pub enum Element {
     Text(String),
     Tag(String),
     EndTag(String),
+    LineBreak,
     IgnoreTag // Setting the element to this will ignore the tag, but parse the children
 }
 
@@ -47,6 +49,6 @@ pub struct StrippedHtml(pub Vec<Element>);
 
 pub fn parse(doc: &Document) -> Result<ParsedHtml> {
     Ok(ParsedHtml {
-        dom: html::Dom::parse(&doc.html)?
+        dom: kuchiki::parse_html().one(doc.html.clone())
     })
 }
