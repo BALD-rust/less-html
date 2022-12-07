@@ -1,6 +1,7 @@
 use crate::{ParsedHtml, StrippedHtml, Element};
 use kuchiki;
 use anyhow::Result;
+use crate::util::optional_append;
 
 /// Default stripping behaviour. Does not remove any content.
 pub fn passthrough(element: &kuchiki::ElementData) -> Option<Element> {
@@ -17,12 +18,6 @@ fn parse_node<F>(node: kuchiki::NodeRef, strip_fn: &F) -> Option<Element> where 
     }
 
     None
-}
-
-fn optional_append(vec: &mut Vec<Element>, elems: Option<&[Element]>) {
-    if let Some(elems) = elems {
-        vec.extend_from_slice(&elems);
-    }
 }
 
 fn strip_node_recursive<F>(node: kuchiki::NodeRef, strip_fn: &F) -> Option<Vec<Element>> where F: Fn(&kuchiki::ElementData) -> Option<Element> {
@@ -62,4 +57,35 @@ pub fn context_free_strip<F>(dom: &ParsedHtml, strip_fn: &F) -> Result<StrippedH
             0: elems
         }
     )
+}
+
+pub type ElementIter<'a> = std::slice::Iter<'a, Element>;
+
+#[macro_export]
+macro_rules! ignore_element {
+    ($elem_type:ident, $next:ident) => {
+        if let less_html::Element::$elem_type(_) = $next { return Some(vec![$next.clone()]); }
+    }
+}
+
+#[macro_export]
+macro_rules! ignore_unit_element {
+        ($elem_type:ident, $next:ident) => {
+        if let less_html::Element::$elem_type = $next { return Some(vec![$next.clone()]); }
+    }
+}
+
+/// Strip that can see the future. When calling strip_fn(), the iterator is always guaranteed to have a next value.
+pub fn oracle_strip<F>(html: StrippedHtml, strip_fn: &F) -> Result<StrippedHtml> where F: Fn(&Element, &mut ElementIter) -> Option<Vec<Element>> {
+    let mut result = vec![];
+    let mut it = html.0.iter();
+
+    while let Some(next) = it.next() {
+        let items = strip_fn(next, &mut it);
+        optional_append(&mut result, items.as_ref().map(Vec::<_>::as_slice));
+    }
+
+    Ok(StrippedHtml{
+        0: result
+    })
 }
