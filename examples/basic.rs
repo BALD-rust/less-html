@@ -28,10 +28,23 @@ fn strip_func(elem: &kuchiki::ElementData) -> Option<Element> {
     Some(Element::Tag(elem.name.local.to_string()))
 }
 
+// Should: Take every text element, and if it has a '\n' split it in a Text with the original text, and a LineBreak
+fn remap_linebreaks(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>> {
+    less_html::ignore_unit_element!(IgnoreTag, next);
+    less_html::ignore_element!(EndTag, next);
+    less_html::ignore_unit_element!(LineBreak, next);
+
+    if let Element::Text(contents) = next {
+        if contents == "\n" { return Some(vec![Element::LineBreak]); }
+    }
+
+    Some(vec![next.clone()])
+}
+
 fn oracle(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>> {
     less_html::ignore_element!(Text, next);
-    less_html::ignore_unit_element!(LineBreak, next);
     less_html::ignore_unit_element!(IgnoreTag, next);
+    less_html::ignore_unit_element!(LineBreak, next);
     less_html::ignore_element!(EndTag, next);
 
     match next {
@@ -54,7 +67,11 @@ fn oracle(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>> {
             }
         }
         Element::EndTag(_) => { unimplemented!() }
-        Element::LineBreak => {  unimplemented!() }
+        Element::LineBreak => {
+            while let Some(Element::LineBreak) = it.peek() { let _ = it.next(); }
+
+            return Some(vec![Element::LineBreak]);
+        }
         Element::IgnoreTag => {  unimplemented!() }
     }
 
@@ -62,14 +79,16 @@ fn oracle(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>> {
 }
 
 fn main() -> Result<()> {
-    let doc = less_html::Document::from_file(std::path::Path::new("ab.html"))?;
+    let doc = less_html::Document::from_file(std::path::Path::new("monads.html"))?;
     let html = less_html::parse(&doc)?;
 
     // Default, no strip:
     // let stripped = less_html::strip::context_free_strip(&html, &less_html::strip::passthrough);
 
     let stripped = less_html::strip::context_free_strip(&html, &strip_func)?;
+    // let stripped = less_html::strip::oracle_strip(stripped, &remap_linebreaks)?;
     let stripped = less_html::strip::oracle_strip(stripped, &oracle)?;
+    println!("{:?}", stripped);
 
     let mut file = File::create(std::path::Path::new("output.html"))?;
     file.write(to_html(&stripped).as_bytes())?;

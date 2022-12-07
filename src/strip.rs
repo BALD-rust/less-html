@@ -1,3 +1,4 @@
+use std::iter::Peekable;
 use crate::{ParsedHtml, StrippedHtml, Element};
 use kuchiki;
 use anyhow::Result;
@@ -59,7 +60,7 @@ pub fn context_free_strip<F>(dom: &ParsedHtml, strip_fn: &F) -> Result<StrippedH
     )
 }
 
-pub type ElementIter<'a> = std::slice::Iter<'a, Element>;
+pub type ElementIter<'a> = Peekable<std::slice::Iter<'a, Element>>;
 
 #[macro_export]
 macro_rules! ignore_element {
@@ -78,7 +79,7 @@ macro_rules! ignore_unit_element {
 /// Strip that can see the future. When calling strip_fn(), the iterator is always guaranteed to have a next value.
 pub fn oracle_strip<F>(html: StrippedHtml, strip_fn: &F) -> Result<StrippedHtml> where F: Fn(&Element, &mut ElementIter) -> Option<Vec<Element>> {
     let mut result = vec![];
-    let mut it = html.0.iter();
+    let mut it = html.0.iter().peekable();
 
     while let Some(next) = it.next() {
         let items = strip_fn(next, &mut it);
