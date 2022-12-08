@@ -14,6 +14,37 @@ pub struct Document {
     pub html: String
 }
 
+// We can potentially store attributes inside this enum
+enum Tag {
+    Html, // <html>
+    Meta, // <meta>
+    Title, // <title>
+    Script, // <script>
+    Head, // <head>
+    Body, // <body>
+    Div, // <div>
+    Span, // <span>
+    Input, // <input>
+    Label, // <label>
+    Table, // <table>
+    UnorderedList, // <ul>
+    ListItem, // <li>
+    Style, // <style>
+    Bold, // <b>
+    Italic, // <i>
+    Heading(u32), // <h{level}> .. ?
+    Link, // <a>
+    Paragraph, // <p>
+    Code, // <code>
+    LineBreak, // <br>
+
+    // TODO:
+    // <dt>, <dd>, <sup>, <pre>
+    // <th>, <tr>, <tb>, <td>
+    // <math> ?
+    
+}
+
 impl Document {
     pub fn from_string(html: String) -> Result<Document> {
         Ok(Document {
