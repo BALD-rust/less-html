@@ -1,5 +1,6 @@
 pub mod error;
 pub mod strip;
+mod util;
 
 use kuchiki;
 use anyhow::Result;
