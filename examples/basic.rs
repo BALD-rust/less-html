@@ -2,14 +2,15 @@ use std::fs::File;
 use std::io::Write;
 use anyhow::Result;
 use kuchiki::ElementData;
-use less_html::{Element, StrippedHtml, strip::ElementIter};
+use less_html::{Element, StrippedHtml, strip::ElementIter, TagKind};
+use less_html::strip::to_html_tag;
 
 fn to_html(stripped: &StrippedHtml) -> String {
     stripped.0.iter().map(|element| -> String {
         match element {
             Element::Text(str) => str.clone(),
-            Element::Tag(name) => "<".to_owned() + name + ">",
-            Element::EndTag(name) => "</".to_owned() + name + ">",
+            Element::Tag(kind) => "<".to_owned() + &to_html_tag(kind) + ">",
+            Element::EndTag(kind) => "</".to_owned() + &to_html_tag(kind) + ">",
             Element::LineBreak => String::from("</br>"),
             Element::IgnoreTag => String::from(""),
         }
@@ -25,7 +26,9 @@ fn strip_func(elem: &kuchiki::ElementData) -> Option<Element> {
     // For now, to simulate this in the output, we won't ignore divs.
 
     if elem.name.local.to_string() == "div" { return Some(Element::LineBreak); }
-    Some(Element::Tag(elem.name.local.to_string()))
+    // todo: always do passthrough pass first so we get a StrippedHTML with nice names to operate on,
+    // instead of this stupidity
+    Some(Element::Tag(less_html::strip::tag_from_str(&elem.name.local.to_string())))
 }
 
 // Should: Take every text element, and if it has a '\n' split it in a Text with the original text, and a LineBreak
@@ -49,14 +52,14 @@ fn oracle(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>> {
 
     match next {
         Element::Text(_) => { unimplemented!() }
-        Element::Tag(name) => {
-            if name == "table" {
+        Element::Tag(kind) => {
+            if *kind == TagKind::Table {
                 // Todo: Write helper function to consume and remap elements until a condition is met
                 let mut result = vec![];
                 while let Some(child) = it.next() {
                     result.push(child.clone());
                     if let Element::EndTag(tag) = child {
-                        if tag == "table" {
+                        if *tag == TagKind::Table {
                             return Some(result);
                         }
                     }
@@ -79,7 +82,7 @@ fn oracle(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>> {
 }
 
 fn main() -> Result<()> {
-    let doc = less_html::Document::from_file(std::path::Path::new("monads.html"))?;
+    let doc = less_html::Document::from_file(std::path::Path::new("html-files/monads.html"))?;
     let html = less_html::parse(&doc)?;
 
     // Default, no strip:
