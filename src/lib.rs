@@ -16,7 +16,8 @@ pub struct Document {
 }
 
 // We can potentially store attributes inside this enum
-enum Tag {
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
+pub enum TagKind {
     Html, // <html>
     Meta, // <meta>
     Title, // <title>
@@ -38,12 +39,11 @@ enum Tag {
     Paragraph, // <p>
     Code, // <code>
     LineBreak, // <br>
-
+    Unknown,
     // TODO:
     // <dt>, <dd>, <sup>, <pre>
     // <th>, <tr>, <tb>, <td>
     // <math> ?
-    
 }
 
 impl Document {
@@ -70,8 +70,8 @@ pub struct ParsedHtml {
 #[derive(Debug, Clone)]
 pub enum Element {
     Text(String),
-    Tag(String),
-    EndTag(String),
+    Tag(TagKind),
+    EndTag(TagKind),
     LineBreak,
     IgnoreTag // Setting the element to this will ignore the tag, but parse the children
 }
