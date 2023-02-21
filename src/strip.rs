@@ -75,7 +75,7 @@ fn parse_node<F>(node: kuchiki::NodeRef, strip_fn: &F) -> Option<Element> where 
     None
 }
 
-fn strip_node_recursive<F>(node: kuchiki::NodeRef, strip_fn: &F) -> Option<Vec<Element>> where F: Fn(&kuchiki::ElementData) -> Option<Element> {
+pub(crate) fn strip_node_recursive<F>(node: kuchiki::NodeRef, strip_fn: &F) -> Option<Vec<Element>> where F: Fn(&kuchiki::ElementData) -> Option<Element> {
     // 1. Parse this node
     let this = parse_node(node.clone(), strip_fn);
 

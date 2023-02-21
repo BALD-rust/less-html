@@ -79,8 +79,28 @@ pub enum Element {
 #[derive(Debug)]
 pub struct StrippedHtml(pub Vec<Element>);
 
-pub fn parse(doc: &Document) -> Result<ParsedHtml> {
-    Ok(ParsedHtml {
-        dom: kuchiki::parse_html().one(doc.html.clone())
-    })
+pub fn parse(doc: &Document) -> Result<StrippedHtml> {
+    let dom = kuchiki::parse_html().one(doc.html.clone());
+
+    let elems: Vec<Element> = dom.children()
+        .flat_map(|node| strip::strip_node_recursive(node.clone(), &strip_func))
+        .fold(vec![], |acc, elem| [acc, elem].concat());
+
+    Ok(
+        StrippedHtml {
+            0: elems
+        }
+    )
+}
+
+fn strip_func(elem: &kuchiki::ElementData) -> Option<Element> {
+    if elem.name.local.to_string() == "head" { return None; }
+    // Default behaviour for browsers is to insert a line break before and after a <div>.
+    // We should implement similar behaviour.
+    // For now, to simulate this in the output, we won't ignore divs.
+
+    if elem.name.local.to_string() == "div" { return Some(Element::LineBreak); }
+    // todo: always do passthrough pass first so we get a StrippedHTML with nice names to operate on,
+    // instead of this stupidity
+    Some(Element::Tag(strip::tag_from_str(&elem.name.local.to_string())))
 }

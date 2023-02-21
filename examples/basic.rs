@@ -19,18 +19,6 @@ fn to_html(stripped: &StrippedHtml) -> String {
 }
 
 
-fn strip_func(elem: &kuchiki::ElementData) -> Option<Element> {
-    if elem.name.local.to_string() == "head" { return None; }
-    // Default behaviour for browsers is to insert a line break before and after a <div>.
-    // We should implement similar behaviour.
-    // For now, to simulate this in the output, we won't ignore divs.
-
-    if elem.name.local.to_string() == "div" { return Some(Element::LineBreak); }
-    // todo: always do passthrough pass first so we get a StrippedHTML with nice names to operate on,
-    // instead of this stupidity
-    Some(Element::Tag(less_html::strip::tag_from_str(&elem.name.local.to_string())))
-}
-
 // Should: Take every text element, and if it has a '\n' split it in a Text with the original text, and a LineBreak
 fn remap_linebreaks(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>> {
     less_html::ignore_unit_element!(IgnoreTag, next);
@@ -85,12 +73,7 @@ fn main() -> Result<()> {
     let doc = less_html::Document::from_file(std::path::Path::new("html-files/monads.html"))?;
     let html = less_html::parse(&doc)?;
 
-    // Default, no strip:
-    // let stripped = less_html::strip::context_free_strip(&html, &less_html::strip::passthrough);
-
-    let stripped = less_html::strip::context_free_strip(&html, &strip_func)?;
-    // let stripped = less_html::strip::oracle_strip(stripped, &remap_linebreaks)?;
-    let stripped = less_html::strip::oracle_strip(stripped, &oracle)?;
+    let stripped = less_html::strip::oracle_strip(html, &oracle)?;
     println!("{:?}", stripped);
 
     let mut file = File::create(std::path::Path::new("output.html"))?;
