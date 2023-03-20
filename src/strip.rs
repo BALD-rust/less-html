@@ -1,66 +1,16 @@
 use std::iter::Peekable;
-use crate::{ParsedHtml, StrippedHtml, Element, TagKind};
+use std::str::FromStr;
+use crate::{ParsedHtml, Element};
+
 use kuchiki;
 use anyhow::Result;
+use flat_html::FlatHtml;
+use flat_html::TagKind;
 use crate::util::optional_append;
-
-pub fn tag_from_str(s: &str) -> TagKind {
-    match s {
-        "html" => TagKind::Html,
-        "meta" => TagKind::Meta,
-        "title" => TagKind::Title,
-        "script" => TagKind::Script,
-        "head" => TagKind::Head,
-        "body" => TagKind::Body,
-        "div" => TagKind::Div,
-        "span" => TagKind::Span,
-        "input" => TagKind::Input,
-        "label" => TagKind::Label,
-        "table" => TagKind::Table,
-        "ul" => TagKind::UnorderedList,
-        "li" => TagKind::ListItem,
-        "style" => TagKind::Style,
-        "b" => TagKind::Bold,
-        "i" => TagKind::Italic,
-        "h1" => TagKind::Heading(1),
-        "a" => TagKind::Link,
-        "p" => TagKind::Paragraph,
-        "code" => TagKind::Code,
-        "br" => TagKind::LineBreak,
-        _ => TagKind::Unknown
-    }
-}
-
-pub fn to_html_tag(kind: &TagKind) -> String {
-    match kind {
-        TagKind::Html => String::from("html"),
-        TagKind::Meta => String::from("meta"),
-        TagKind::Title => String::from("title"),
-        TagKind::Script => String::from("script"),
-        TagKind::Head => String::from("head"),
-        TagKind::Body => String::from("body"),
-        TagKind::Div => String::from("div"),
-        TagKind::Span => String::from("span"),
-        TagKind::Input => String::from("input"),
-        TagKind::Label => String::from("label"),
-        TagKind::Table => String::from("table"),
-        TagKind::UnorderedList => String::from("ul"),
-        TagKind::ListItem => String::from("li"),
-        TagKind::Style => String::from("style"),
-        TagKind::Bold => String::from("b"),
-        TagKind::Italic => String::from("i"),
-        TagKind::Heading(u32) => String::from("h1"),
-        TagKind::Link => String::from("a"),
-        TagKind::Paragraph => String::from("p"),
-        TagKind::Code => String::from("code"),
-        TagKind::LineBreak => String::from("br"),
-        TagKind::Unknown => String::from("div") // doesnt do anything, so this is probably a "decent" default, until we error on it.
-    }
-}
 
 /// Default stripping behaviour. Does not remove any content.
 pub fn passthrough(element: &kuchiki::ElementData) -> Option<Element> {
-    Some(Element::Tag(tag_from_str(&element.name.local.to_string())))
+    Some(Element::Tag(TagKind::from_str(&element.name.local.to_string()).ok()?))
 }
 
 fn parse_node<F>(node: kuchiki::NodeRef, strip_fn: &F) -> Option<Element> where F: Fn(&kuchiki::ElementData) -> Option<Element> {
@@ -102,13 +52,13 @@ pub(crate) fn strip_node_recursive<F>(node: kuchiki::NodeRef, strip_fn: &F) -> O
 
 
 /// Do a context free strip of a document. This means that only one element of the original HTML can be examined at a time.
-pub fn context_free_strip<F>(dom: &ParsedHtml, strip_fn: &F) -> Result<StrippedHtml> where F: Fn(&kuchiki::ElementData) -> Option<Element> {
+pub fn context_free_strip<F>(dom: &ParsedHtml, strip_fn: &F) -> Result<FlatHtml> where F: Fn(&kuchiki::ElementData) -> Option<Element> {
     let elems: Vec<Element> = dom.dom.children()
         .flat_map(|node| strip_node_recursive(node.clone(), strip_fn))
         .fold(vec![], |acc, elem| [acc, elem].concat());
 
     Ok(
-        StrippedHtml {
+        FlatHtml {
             0: elems
         }
     )
@@ -116,22 +66,31 @@ pub fn context_free_strip<F>(dom: &ParsedHtml, strip_fn: &F) -> Result<StrippedH
 
 pub type ElementIter<'a> = Peekable<std::slice::Iter<'a, Element>>;
 
+/// Do not strip away this element, instead continue the oracle.
 #[macro_export]
-macro_rules! ignore_element {
+macro_rules! keep_element {
     ($elem_type:ident, $next:ident) => {
         if let less_html::Element::$elem_type(_) = $next { return Some(vec![$next.clone()]); }
     }
 }
 
+/// Do not strip away this element, instead continue the oracle.
 #[macro_export]
-macro_rules! ignore_unit_element {
+macro_rules! keep_unit_element {
         ($elem_type:ident, $next:ident) => {
-        if let less_html::Element::$elem_type = $next { return Some(vec![$next.clone()]); }
+            if let less_html::Element::$elem_type = $next { return Some(vec![$next.clone()]); }
+        }
+}
+
+#[macro_export]
+macro_rules! keep_this {
+    ($next:ident) => {
+        return Some(vec![$next.clone()]);
     }
 }
 
 /// Strip that can see the future. When calling strip_fn(), the iterator is always guaranteed to have a next value.
-pub fn oracle_strip<F>(html: StrippedHtml, strip_fn: &F) -> Result<StrippedHtml> where F: Fn(&Element, &mut ElementIter) -> Option<Vec<Element>> {
+pub fn oracle_strip<F>(html: FlatHtml, strip_fn: &F) -> Result<FlatHtml> where F: Fn(&Element, &mut ElementIter) -> Option<Vec<Element>> {
     let mut result = vec![];
     let mut it = html.0.iter().peekable();
 
@@ -140,7 +99,7 @@ pub fn oracle_strip<F>(html: StrippedHtml, strip_fn: &F) -> Result<StrippedHtml>
         optional_append(&mut result, items.as_ref().map(Vec::<_>::as_slice));
     }
 
-    Ok(StrippedHtml{
+    Ok(FlatHtml {
         0: result
     })
 }

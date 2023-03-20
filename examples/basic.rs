@@ -2,15 +2,16 @@ use std::fs::File;
 use std::io::Write;
 use anyhow::Result;
 use kuchiki::ElementData;
-use less_html::{Element, StrippedHtml, strip::ElementIter, TagKind};
-use less_html::strip::to_html_tag;
 
-fn to_html(stripped: &StrippedHtml) -> String {
+use flat_html::{FlatHtml, to_html_tag};
+use less_html::{Element, strip::ElementIter, TagKind};
+
+fn to_html(stripped: &FlatHtml) -> String {
     stripped.0.iter().map(|element| -> String {
         match element {
             Element::Text(str) => str.clone(),
-            Element::Tag(kind) => "<".to_owned() + &to_html_tag(kind) + ">",
-            Element::EndTag(kind) => "</".to_owned() + &to_html_tag(kind) + ">",
+            Element::Tag(kind) => "<".to_owned() + &to_html_tag(&kind) + ">",
+            Element::EndTag(kind) => "</".to_owned() + &to_html_tag(&kind) + ">",
             Element::LineBreak => String::from("</br>"),
             Element::IgnoreTag => String::from(""),
         }
@@ -21,9 +22,9 @@ fn to_html(stripped: &StrippedHtml) -> String {
 
 // Should: Take every text element, and if it has a '\n' split it in a Text with the original text, and a LineBreak
 fn remap_linebreaks(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>> {
-    less_html::ignore_unit_element!(IgnoreTag, next);
-    less_html::ignore_element!(EndTag, next);
-    less_html::ignore_unit_element!(LineBreak, next);
+    less_html::keep_unit_element!(IgnoreTag, next);
+    less_html::keep_element!(EndTag, next);
+    less_html::keep_unit_element!(LineBreak, next);
 
     if let Element::Text(contents) = next {
         if contents == "\n" { return Some(vec![Element::LineBreak]); }
@@ -33,30 +34,26 @@ fn remap_linebreaks(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>
 }
 
 fn oracle(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>> {
-    less_html::ignore_element!(Text, next);
-    less_html::ignore_unit_element!(IgnoreTag, next);
-    less_html::ignore_unit_element!(LineBreak, next);
-    less_html::ignore_element!(EndTag, next);
+    less_html::keep_element!(Text, next);
+    less_html::keep_unit_element!(IgnoreTag, next);
+    less_html::keep_unit_element!(LineBreak, next);
+    less_html::keep_element!(EndTag, next);
 
     match next {
         Element::Text(_) => { unimplemented!() }
-        Element::Tag(kind) => {
-            if *kind == TagKind::Table {
-                // Todo: Write helper function to consume and remap elements until a condition is met
-                let mut result = vec![];
-                while let Some(child) = it.next() {
-                    result.push(child.clone());
-                    if let Element::EndTag(tag) = child {
-                        if *tag == TagKind::Table {
-                            return Some(result);
-                        }
+        Element::Tag(TagKind::Table) => {
+            // Todo: Write helper function to consume and remap elements until a condition is met
+            let mut result = vec![];
+            while let Some(child) = it.next() {
+                result.push(child.clone());
+                if let Element::EndTag(tag) = child {
+                    if *tag == TagKind::Table {
+                        return Some(result);
                     }
                 }
-            } else {
-                // Todo: also add a macro for this (else_ignore!)
-                return Some(vec![next.clone()]);
             }
-        }
+        },
+        Element::Tag(_) => { less_html::keep_this!(next) }
         Element::EndTag(_) => { unimplemented!() }
         Element::LineBreak => {
             while let Some(Element::LineBreak) = it.peek() { let _ = it.next(); }
@@ -66,7 +63,7 @@ fn oracle(next: &Element, it: &mut ElementIter) -> Option<Vec<Element>> {
         Element::IgnoreTag => {  unimplemented!() }
     }
 
-    todo!()
+    panic!("Missing tag handlers in oracle strip")
 }
 
 fn main() -> Result<()> {
