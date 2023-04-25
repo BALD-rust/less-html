@@ -7,6 +7,7 @@ use anyhow::Result;
 use kuchiki::traits::TendrilSink;
 
 use error::Error;
+use crate::util::optional_append;
 
 
 /// Original HTML document.
@@ -83,7 +84,7 @@ pub fn parse(doc: &Document) -> Result<StrippedHtml> {
     let dom = kuchiki::parse_html().one(doc.html.clone());
 
     let elems: Vec<Element> = dom.children()
-        .flat_map(|node| strip::strip_node_recursive(node.clone(), &strip_func))
+        .flat_map(|node| strip_node_recursive(node.clone(), &strip_func))
         .fold(vec![], |acc, elem| [acc, elem].concat());
 
     Ok(
@@ -103,4 +104,29 @@ fn strip_func(elem: &kuchiki::ElementData) -> Option<Element> {
     // todo: always do passthrough pass first so we get a StrippedHTML with nice names to operate on,
     // instead of this stupidity
     Some(Element::Tag(strip::tag_from_str(&elem.name.local.to_string())))
+}
+
+fn strip_node_recursive<F>(node: kuchiki::NodeRef, strip_fn: &F) -> Option<Vec<Element>> where F: Fn(&kuchiki::ElementData) -> Option<Element> {
+    // 1. Parse this node
+    let this = parse_node(node.clone(), strip_fn);
+
+    // 2. Parse children
+    let children: Option<Vec<Element>> = if let Some(elem) = node.clone().into_element_ref() {
+        if this.is_some() {
+            Some(node.children()
+                .flat_map(|node| strip_node_recursive(node.clone(), strip_fn))
+                .fold(vec![], |acc, elem| [acc, elem].concat())
+            )
+        } else { None }
+    } else { None };
+
+    let mut result = vec![];
+    optional_append(&mut result, this.as_ref().map(std::slice::from_ref));
+    optional_append(&mut result, children.as_ref().map(Vec::<_>::as_slice));
+
+    if let Some(Element::Tag(tag)) = this {
+        result.push(Element::EndTag(tag));
+    }
+
+    Some(result)
 }
