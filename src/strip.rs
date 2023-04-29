@@ -50,20 +50,6 @@ pub(crate) fn strip_node_recursive<F>(node: kuchiki::NodeRef, strip_fn: &F) -> O
     Some(result)
 }
 
-
-/// Do a context free strip of a document. This means that only one element of the original HTML can be examined at a time.
-pub fn context_free_strip<F>(dom: &ParsedHtml, strip_fn: &F) -> Result<FlatHtml> where F: Fn(&kuchiki::ElementData) -> Option<Element> {
-    let elems: Vec<Element> = dom.dom.children()
-        .flat_map(|node| strip_node_recursive(node.clone(), strip_fn))
-        .fold(vec![], |acc, elem| [acc, elem].concat());
-
-    Ok(
-        FlatHtml {
-            0: elems
-        }
-    )
-}
-
 pub type ElementIter<'a> = Peekable<std::slice::Iter<'a, Element>>;
 
 /// Do not strip away this element, instead continue the oracle.
