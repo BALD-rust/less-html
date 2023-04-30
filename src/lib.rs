@@ -43,7 +43,8 @@ pub fn parse(doc: &Document) -> Result<FlatHtml> {
 
     let elems: Vec<Element> = dom.children()
         .flat_map(|node| strip::strip_node_recursive(node.clone(), &strip_func))
-        .fold(vec![], |acc, elem| [acc, elem].concat());
+        .flatten()
+        .collect();
 
     Ok(
         FlatHtml {

@@ -34,7 +34,8 @@ pub(crate) fn strip_node_recursive<F>(node: kuchiki::NodeRef, strip_fn: &F) -> O
         if this.is_some() {
             Some(node.children()
                 .flat_map(|node| strip_node_recursive(node.clone(), strip_fn))
-                .fold(vec![], |acc, elem| [acc, elem].concat())
+                .flatten()
+                .collect()
             )
         } else { None }
     } else { None };

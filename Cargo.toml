@@ -11,4 +11,4 @@ name = "basic"
 [dependencies]
 anyhow = "1.0.66"
 kuchiki = "0.8.1"
-flat-html = { git = "https://github.com/BALD-rust/flat-html" }
+flat-html = { git = "ssh://git@github.com/BALD-rust/flat-html.git" }
